@@ -1,32 +1,25 @@
 ---
 title: 欢迎来到我的博客
+tags: [life]
+categories: life
 ---
-欢迎来到 [Hexo](https://hexo.io/)! This is your very first post. Check [documentation](https://hexo.io/docs/) for more info. If you get any problems when using Hexo, you can find the answer in [troubleshooting](https://hexo.io/docs/troubleshooting.html) or you can ask me on [GitHub](https://github.com/hexojs/hexo/issues).
 
-## 关于
 
-### 关于我
+## 关于我
+苦逼小码农一只，平时喜欢学习，自知能力有限，所以常搬砖练习。
+普通本科毕业，未曾读研也未有BAT等大厂的实习经验。
+入行没几年，也没特别拿出手的项目经验，总感觉浑浑噩噩，想跟随大牛或者自组一队搞搞新意思。
+听歌·读书·看电影乃平生所好。
 
-``` bash
-$ hexo new "My New Post"
-```
 
-More info: [Writing](https://hexo.io/docs/writing.html)
+## 关于博客
+以前总是看大牛的博客，悄悄滴保存到自己的云笔记中，甚觉不好缺羞于写博客，现借GitPages自建一学习园地，且行且珍惜啊。
 
-### 关于博客
 
-``` bash
-$ hexo server
-```
+## 致谢
 
-More info: [Server](https://hexo.io/docs/server.html)
 
-### 致谢
 
-``` bash
-$ hexo generate
-```
-
-More info: [Generating](https://hexo.io/docs/generating.html)
+联系我: [Steven.Xu](nonumber1989@gmail.com)
 
 
