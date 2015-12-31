@@ -81,10 +81,4 @@ deploy:
   message: steven xu update blog
 
 
-# setting the menu
-  menu:
-  home: /                       #主页
-  categories: /categories	#分类页（需手动创建）
-  about: /about		#关于页面（需手动创建）
-  archives: /archives		#归档页
-  tags: /tags			#标签页（需手动创建）
+
