@@ -21,4 +21,5 @@ categories: java
 ### Tips
   1. 子类覆盖超类的方法，子类的异常只能更具体或者没有异常抛出
   2. 如果超类没有checked异常抛出，那么子类也不能有checked异常抛出
-  
+  3. throwable.getStackTrace() StackTraceElement[]
+     StackTraceElement shows de
