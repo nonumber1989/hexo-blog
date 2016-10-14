@@ -44,12 +44,35 @@ lexical scope 是在方法声明的时候被定义的，也就是说变量所在
 ##### Lexical Cheating
    + eval
           function foo(str,a){
-            eval(str);//cheated
+            eval(str);//cheated, b=3 will shadow b=2
             console.log(a,b);
           }
           var b = 2;
           foo("var b = 3;",1);//1,3
-   + 
+   + eval under strict mode
+          function foo(str){
+            "use strict";
+             eval(str);
+             console.log(a);//ReferenceError: a is not defined       
+          }
+          foo("var a = 2;");
+    eval 在严格模式下只会执行但是不会改变eclosing scope
+    `尽量在代码中避免eval的使用`
+   + with
+          function foo(obj){
+            with(obj){
+              a = 2;
+            }
+          }
+          var o1 = { a:3 };
+          var o2 = { b:3 };
+          foo(o1);
+          console.log(o1.a);//2
+          foo(o2);
+          console.log(o2.a);//undefined
+          console.log(a);//2, Leaked global
+   eval会修改当前的scope 而with会创建一个新的lexical scope
+   + 性能问题 ： 正常情况下采用lexical scope，js的编译器会帮助我们优化代码，提升sope执行过程中查找变量的速度（scopo在写代码的时候就已经定了），但是一旦代码中加入了eval,编译器就会认为运行过程会改变scope，因此根本不会进行代码的优化，性能下降
 
 ## Closure
 
