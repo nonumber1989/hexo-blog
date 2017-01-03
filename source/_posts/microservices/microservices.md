@@ -20,7 +20,7 @@ categories: microservice
 # 译文链接
 1. *[微服务介绍](http://www.jianshu.com/p/8d2cfa1fa633)*
 2. *[构建微服务之使用API网关](http://www.jianshu.com/p/9e90b2a5df7b)*
-3. *[构建微服务之:微服务架构中的进程内通信](http://www.jianshu.com/p/9c03081bc0d9)*
+3. *[构建微服务之:微服务架构中的进程间通信](http://www.jianshu.com/p/9c03081bc0d9)*
 4. *[微服务中的服务发现](http://www.jianshu.com/p/1bf9a46efe7a)*
 5. *[微服务之事件驱动的数据管理](http://www.jianshu.com/p/9a440c5ea1db)*
 6. *[选择一种微服务部署策略](http://www.jianshu.com/p/31c2a5a8b764)*
