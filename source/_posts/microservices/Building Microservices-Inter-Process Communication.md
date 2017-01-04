@@ -60,5 +60,71 @@ categories: microservice
 
 你是如何根据更改的大小来处理服务API的变化的呢？一些变化很小，通常可以与之前版本做到向后兼容，比如，你为请求或相应添加了一个属性；对此，设计服务时考虑服务和客户消费者的鲁棒性原则是很有必要的：使用就版本服务API的客户端可以在新版本服务API下正常工作，服务端为客户端缺失的属性提供默认值，客户端自动忽略额外添加的响应属性。最后强调，注意使用IPC机制和定义消息格式使你的API可以简单方便的进化！
 
-当然，有时候我们不得不对API做一些较大的，不再兼容的变化，而我们这时候又不可能强制每个客户端升级，因此我们的服务就要继续支持运行一段时间的老版本API。如果使用http，我们可以在URL里嵌入服务版本，每个服务实例可能同时处理多个版本的服务，当然，你也可以选择为每个版本服务部署单独的服务实例。
+当然，有时候我们不得不对API做一些较大的，不再兼容的变化，而我们这时候又不可能强制每个客户端升级，因此我们的服务就要继续支持运行一段时间的老版本API。如果使用http，我们可以在URL里嵌入服务版本，每个服务实例可能同时处理多个版本的服务，当然，你也可以选择为每个服务版本部署单独的服务实例。
 
+## 处理局部故障
+就像前面关于API网关文章提到的那样：在分布式系统中总会有无时无刻的局部故障的风险。由于客户端和服务在不同的进程中，服务可能由于挂掉或者维护原因而不能及时响应客户端的请求，或者服务由于过载原因导致响应缓慢。
+
+比如，让我们考虑之前文章提到的**Product details**场景，假设推荐服务没有响应了，一个简单的客户端实现可能无期限的等待服务响应并阻塞，这样不仅导致糟糕的用户体验，在很多应用中还会消耗比如线程这样宝贵的资源，最终就像下图展示的那样，运行时将会用尽所有线程使得服务不再响应任何请求：
+![Paste_Image.png](http://upload-images.jianshu.io/upload_images/3912920-11c7d11329b92789.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+为解决此类问题，设计上处理局部故障是很有必要的。
+
+Netflix给出了一些处理局部故障比较好的方法：
++ 网络超时：等待响应时不要一直阻塞，而是使用超时，超时能够保证资源不会一直被占用
++ 限制未完成请求的数量：针对一个请求某服务的客户端，需要设置其未处理请求数量的上限，一旦超过限制就不再处理任何请求，这样就做到快速失败。
++ 断路器模式：跟踪成功和失败请求的数量，如果比率超过了设置的阀值，打开断路器使得后续请求快速失败。如果大量请求失败，就建议服务为不可以状态并决绝处理新请求，过一段时间之后，客户端可以再次重试，一旦成功，关闭断路器。
++ 提供fallback机制：请求失败时提供fallback，比如返回缓存值或者为失败的推荐服务返回默认空集合作为默认值。
+**Netflix Hystrix**是一个实现了这些模式的开源工具包，如果你使用JVM那么一定要考虑使用它！如果你的服务不是运行在JVM中，那也要考虑有等效的实现来处理此类问题。
+
+## IPC 技术
+我们有不同的IPC技术可供选择：服务可以使用基于请求/响应的同步通信模式，比如基于Http的REST或者Thrift，当然，也可以使用异步基于消息的通信模式，比如AMQP、STOMP。这些通信模式有不同的消息格式，服务可以使用基于文本格式、方便阅读的JSON 或者 XML格式，也可以使用效率更高的二进制格式（比如Avro或Protocol Buffers）。稍后我们将讨论同步IPC机制，现在我们先讨论下异步的IPC机制：
+
+### 异步，基于消息的通信
+使用消息时，进程间通过异步交换消息来通信。一个客户端通过发送消息的方式请求服务，如果期望服务有响应，也是服务通过向客户端发送另外的消息来实现。由于通信是异步的，客户端不会为了响应等待并阻塞，相反的，客户端编程时就是以服务不会立即返回响应来处理的。
+
+一条消息包含消息头（元数据和发送者）和消息体，消息通过频道进行交换，任意数量的消费者都可以往频道中发消息，任意数量的消费者也可以消费频道中的消息。有**point‑to‑point**和**publish‑subscribe**两种频道：point‑to‑point模式下，频道的消息只会被交付到某一个消费者，这种模式用于前面提到的一对一的交互；publish‑subscribe 模式下，频道的消息将会交付到所有感兴趣的消费者，使用于前面提到的一对多交互风格。
+
+下图展示了**taxi-hailing** 应用可能是一publish-subscribe模式：
+![Paste_Image.png](http://upload-images.jianshu.io/upload_images/3912920-6cb0d76a907b6ec2.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+行程管理服务通过向publish-subscribe频道写入trip create消息的方式通知比如分发器这样感兴趣的服务，分发器查找空闲司机并通过向publish-subscribe频道写入Driver Proposed消息通知其他服务。
+
+有多种消息系统供我们选择，当然我们尽量选择一个支持多种编程语言的来使用。一些消息系统支持标准的协议比如 AMQP和STOMP，另一些消息系统有专有但是文档化的协议，大量的开源消息系统可供我们挑选，包括RabbitMQ、Apache Kafka、Apache ActiveMQ和NSQ。统一的来看，他们都支持某种形式的消息和频道，都致力于高可靠，高性能和高扩展性，但是每个消息中介在实现细节上还是有很大的不同：
+使用消息系统有很多优点：
++ 客户端与服务端解耦： 客户端只需要向合适的频道发送消息就实现简单的请求，客户端完全感知不到服务实例的存在，因此不需要再去使用一套服务发现机制去决定服务实例的位置。
++ 缓存消息：在同步的请求/响应协议，比如HTTP下，客户端和服务端在交互的阶段必须保证双方都可用，然而，消息中介会把消息写入队列直到消息被消费者处理位置，这意味着，尽管 在订单履行系统响应缓慢甚至不可用情况下，在线商城仍然可以接受来自客户的订单，只需要先把订单消息简单的入队即可。
++ 灵活的客户-服务端交换风格，消息支持前面提到的所有交互风格。
++ 显示的进程间通信：基于 RPC的通信机制试图使调用远程服务等同于调用本地服务。然而，由于物理定律和局部故障的可能性，事实上他们相当不同。消息使这些差异非常明显，因此开发人员不被虚假的安全感所迷惑。
+
+当然消息系统也有缺点：
++ 额外的运维复杂度：消息系统毕竟也是额外的系统组件，也要求安装、配置、运维等操作，有必要保证消息系统的高可用，否则会影响整个系统的稳定性。
++ 实现请求/响应交互的复杂度：要实现请求/响应的交互风格还是要做些额外工作的：每条请求消息必要要包含回复频道的标志符以及关联标志符 ，服务回写包含关联ID的消息到回复频道，客户端使用关联ID去匹配请求对应的响应。当然，如果使用直接支持请求/响应的基于IPC机制的方式，将会特别简单。
+
+我们已经讨论了基于消息的IPC，再看检验下基于请求/响应的IPC吧：
+
+### 同步，基于请求/响应的IPC
+当使用同步，基于请求/响应的IPC机制的时候，客户端向服务端发送请求，服务端处理请求并返回响应，很多客户端，发出请求的线程会在等待响应过程中阻塞，另外有一些客户端也会使用异步、事件驱动的代码，比如封装好的Futures 或 Rx Observables。然而，和使用消息不一样，客户端假设请求会立即返回。有几种方案供我们选择，比较流行就是REST和 Thrift，我们先看下REST：
+#### REST
+限制使用REST风格暴露API很流行，REST基本就是使用HTTP的IPC 机制，REST的关键理念是资源，也就是通常代表诸如用户或产品的某个或一组业务对象，REST使用HTTP verbs维护URL指向的资源，比如 GET返回某资源的表示，可能是XML也可能是JSON对象， POST会创建新资源，PUT更新资源··· 引用自Roy Fielding，提出REST的大牛：
+
+“REST provides a set of architectural constraints that, when applied as a whole, emphasizes scalability of component interactions, generality of interfaces, independent deployment of components, and intermediary components to reduce interaction latency, enforce security, and encapsulate legacy systems.”
+—Fielding, [Architectural Styles and the Design of Network-based Software Architectures](http://www.ics.uci.edu/~fielding/pubs/dissertation/top.htm)
+
+下图展示了**taxi-hailing **应用使用REST的场景：
+![Paste_Image.png](http://upload-images.jianshu.io/upload_images/3912920-f0467101397a961a.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+乘客向行程服务/trips发送POST请求，行程服务通过向乘客管理服务发送GET请求获取乘客信息，在验证完乘客授权之后，创建行程，行程服务创建行程后返回201响应给手机.
+
+很多用了HTTP暴露服务API的开发就说自己是REST，其实按照 Fielding 在[blog post](http://roy.gbiv.com/untangled/2008/rest-apis-must-be-hypertext-driven)描述的规定，他们根本不是REST。 Leonard Richardson (no relation)定义了非常有用的 [maturity model for REST](http://martinfowler.com/articles/richardsonMaturityModel.html)组成了下面几个级别：
++ Level 0 :客户端使用HTTP POST调用服务固定的URL，每次请求指定动作和参数
++ Level 1：支持资源的概念，请求通过POST，并且要制定要做的动作和参数
++ Level 2：充分使用 HTTP verbs 执行动作GET获取资源 POST创建资源PUT更新资源，还是要请求参数和请求体，还可以指定请求的参数，使得服务充分使用web基础架构的功能，比如缓存请求等
++ Level 3:  API定义按照HATEOAS (Hypertext As The Engine Of Application State) 原则。基本的定义就是GET请求返回表示资源的body中包含一些对资源允许动作的链接。比如，客户端可以使用get订单返回的订单body中的一个超链接取消一个订单。HATEOAS 优点之一是：客户端不用在代码中硬编码URL了，另外，由于返回的body中包含允许对资源所作动作的超链接，客户端就不需要再猜测当前资源状态下他可以做哪些操作了。
+
+使用基于HTTP的协议的优点有：
++ HTTP 简单而且大家都熟悉
++ 可以用浏览器测试，配合比如Postman插件更佳，命令行curl也很方便（假设使用json或其他数据格式）
++ 直接就支持请求/响应风格的通信
++ HTTP很友好
++ 无需中介，简化架构
+
+使用HTTP的缺点：
