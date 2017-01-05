@@ -24,4 +24,4 @@ categories: microservice
 4. *[微服务中的服务发现](http://www.jianshu.com/p/1bf9a46efe7a)*
 5. *[微服务之事件驱动的数据管理](http://www.jianshu.com/p/9a440c5ea1db)*
 6. *[选择一种微服务部署策略](http://www.jianshu.com/p/31c2a5a8b764)*
-7. *[重构巨石应用到微服务](http://www.jianshu.com/p/29f4d788e3bb)*
+7. *[重构单体应用到微服务](http://www.jianshu.com/p/29f4d788e3bb)*

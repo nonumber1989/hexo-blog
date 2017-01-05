@@ -12,7 +12,7 @@ categories: microservice
 4. *[微服务中的服务发现](http://www.jianshu.com/p/1bf9a46efe7a)*
 5. *[微服务之事件驱动的数据管理](http://www.jianshu.com/p/9a440c5ea1db)*
 6. *[选择一种微服务部署策略](http://www.jianshu.com/p/31c2a5a8b764)*
-7. *[重构巨石应用到微服务](http://www.jianshu.com/p/29f4d788e3bb)*
+7. *[重构单体应用到微服务](http://www.jianshu.com/p/29f4d788e3bb)*
 
 微服务现在受到了大量的关注︰ 文章、 博客、 社交媒体和学术会议上的讨论都能看到该词汇的身影。微服务正迅速走向 Gartner Hype cycle 所指的快速发展期。同时，软件社区的一些怀疑论者指出微服务并不是什么新鲜玩意儿。这些唱反调的人说微服务和SOA概念并没有什么不同，旧瓶装新酒而已，顺势炒炒新概念。然而，不管说是夸大也好，怀疑也好，微服务架构模式应用在敏捷开发和交付复杂的企业应用程序的时候还是有巨大优势的 。
 
