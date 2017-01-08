@@ -3,3 +3,89 @@ title: 重构单体应用到微服务
 tags: [microservice]
 categories: microservice
 ---
+
+**原文链接:[*Refactoring a Monolith into Microservices*](https://www.nginx.com/blog/refactoring-a-monolith-into-microservices/?utm_source=introduction-to-microservices&utm_medium=blog&utm_campaign=Microservices)**
+
+1. *[微服务介绍](http://www.jianshu.com/p/8d2cfa1fa633)*
+2. *[构建微服务之使用API网关](http://www.jianshu.com/p/9e90b2a5df7b)*
+3. *[构建微服务之:微服务架构中的进程间通信](http://www.jianshu.com/p/9c03081bc0d9)*
+4. *[微服务中的服务发现](http://www.jianshu.com/p/1bf9a46efe7a)*
+5. *[微服务之事件驱动的数据管理](http://www.jianshu.com/p/9a440c5ea1db)*
+6. *[选择一种微服务部署策略](http://www.jianshu.com/p/31c2a5a8b764)*
+7. *重构单体应用到微服务(本文)*
+
+这是使用微服务架构构建应用系列的第七篇也是最后一篇文章，第一篇文章介绍了微服务架构模式，并讨论了使用微服务架构的优势和劣势，接下来的文章讨论微服务架构的不同方面：使用API网关、进程间通信、服务发现、事件驱动的数据管理以及部署微服务，本篇文章，让我们看下如何把一个单体应用重构为微服务架构的应用。
+
+我希望这个系列的文章使你对微服务架构有一些好的理解，比如它的优势和劣势，何时使用微服务等 ，或许微服务架构对您的组织将非常合适。
+
+然而，你现在更可能正在为一个庞大的、复杂的单体应用而工作，你每天正经历着开发和部署单体应用的缓慢和痛苦 ，微服务看起来更像一个遥远的极乐世界。幸运的是，我们有几个策略可以使你逃离单体的地狱。本篇文章我将描述如何渐进的把单体应用重构为一系列的微服务。
+
+# 重构为微服务架构的概览
+把一个单体应用转化为微服务实际是[应用现代化](https://en.wikipedia.org/wiki/Software_modernization)的一种形式，这个事情开发者已经做了十多年了，因此，有一些经验在我们重构应用为微服务时候可以重用。
+
+策略之一是不要使用“Big Bang”式的重写，也就是不要集中所有的力量从头构建一个新的基于微服务的应用，尽管那个方式听起来很诱人，实际会有极大的风险，最终也会以失败告终。正如 Martin Fowler [所说](http://www.randyshoup.com/evolutionary-architecture)：“the only thing a Big Bang rewrite guarantees is a Big Bang!”。
+
+避免使用Big Bang重写，我们应该渐进式的重构我们的单体应用，我们逐步的构建由微服务组成的新应用，并与我们的单体应用一起运行。随着时间的推移，单体应用实现的功能将会缩水，直到完全消失或者变成另外一个微服务。这种策略可以类比于在高速路上只把车开到70迈-有挑战性但是比Big Bang重写危险小。
+
+Martin Fowler 提到了这种应用现代化的策略，称其为[Strangler Application](http://www.martinfowler.com/bliki/StranglerApplication.html)，名称来源于热带雨林中的扼杀藤蔓，扼杀藤蔓生长在大树的周围企图得到树冠处的阳光，最后树木会死掉，只留下一堆树状的藤蔓。应用现代化 遵循这样的模式，我们将会围绕的遗留应用构建由一系列微服务组成的新的应用，最终遗留应用将会消失。
+![Paste_Image.png](http://upload-images.jianshu.io/upload_images/3912920-ed317d25d4200ca5.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+让我们来看实现该目标可采用的不同策略：
+
+# 策略一：停止挖掘
+ [Law of Holes](https://en.wikipedia.org/wiki/Law_of_holes) 告诉我们一旦你落入洞穴，你应该停止继续挖洞！一旦你的单体应用变的难以管理，这是一个需要听取的极好的建议。换句话讲，你应该停止让单体应用继续变的更加庞大，这意味着，当你需要实现新功能的时候，你不应该往单体应用中添加新的代码。相反的，这个策略的重要一点是，把新代码放到一个独立的微服务中去。下图展示了应用该方法后的系统架构：
+![Paste_Image.png](http://upload-images.jianshu.io/upload_images/3912920-7bb605084710b1ad.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+除了新服务和遗留的单体应用，还多出来其他的两个组件：第一个组件是请求路由器，用来处理HTTP请求，这和我们前面所说的API网关类似，路由器发送请求到对应新功能的新服务上去，路由遗留应用的请求到单体应用中去。
+
+另一个组件就是胶水代码，用来集成服务和单体应用。一个服务很少独立存在，一般都需要访问单体应用拥有的数据。胶水代码存在于服务端，或者单体端，或者两端均有，用来负责数据的集成，服务使用胶水代码对单体拥有的数据进行读写操作。
+
+服务有三种策略可以用来访问单体的数据:
++ 调用单体提供的远程API
++ 直接访问单体拥有的数据库
++ 维护自己的数据副本，副本需要从单体应用端同步过来
+
+胶水代码有时也被称为*anti-corruption layer*，这是因为胶水代码防止了拥有自己纯净领域模型的服务被来自遗留单体应用的领域模型的设计理念所污染。胶水代码在两种不同的模型间进行转换。anti-corruption layer一词首次出现在Eric Evans 所著的必读之书 [Domain Driven Design](https://domainlanguage.com/ddd/) 中，并在[white paper](http://domainlanguage.com/ddd-resources/ddd-surrounded-by-legacy-software/)中被提炼修正。开发一个anti-corruption layer不是一项简单的事情，但如果不想陷入单一地狱，还是有必要搞一个的。
+
+把新功能实现为轻量级的服务有诸多优势：它避免单体应用最终变的不可管理，服务同时可以被独立于单体去开发、部署和扩展。你可以通过创建每一个新的服务体会到微服务架构的优势。
+
+然而，这种方式并没有解决单体中的问题，为了解决这些问题，你需要拆分单体。让我们看一下拆分的策略：
+
+# 策略二：前后端分离
+
+缩小单体应用的策略之一是把展示层从业务逻辑层和数据访问层中拆分出来。一个典型的企业应用一般包含至少三种不同的组件：
+
++ 展示层：用来处理HTTP请求并实现基于REST API或者基于HTML的Web UI，在一个用户界面复杂的应用中，展示层通常包含大量的代码
++ 业务逻辑层：应用的核心并实现业务规则的组件
++ 数据访问层：访问诸如数据库和消息中介等基础架构的组件。
+
+通常展示逻辑对于后台业务逻辑与数据访问逻辑来讲，彼此有清晰的划分。业务层有由一个或多个门面组成的粗粒度API，它封装了业务逻辑组件，这些API是拆分单体应用到两个更小应用时候的自然缝隙。一个应用包含展示层，另一应用包含业务逻辑和数据访问逻辑，经过拆分，展示逻辑的应用向业务逻辑应用发起远程调用，下图展示了重构前后的架构：
+![Paste_Image.png](http://upload-images.jianshu.io/upload_images/3912920-48f9d932a6016ea1.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+这种方式拆分单体应用有两个大的优势：它使得两个应用可以独立的开发、部署和扩展，尤其是它允许展示层开发者快速迭代用户界面并容易的进行A|B测试，这种方式的另一优势是它暴露了可以被其他微服务调用的远程API。
+
+这种策略，也仅仅是部分解决方案，这样重构完之后，很可能两个应用逐步变成两个不可管理的单体。你需要使用第三者策略消除剩余的单体部分。
+
+# 策略三：提取服务
+
+重构第三个策略是把单体中存在的模块变成独立的微服务。每一次你提取模块并把其转化为服务，单体就会缩小，一旦你覆盖了足够多的模块，单体就将不再是一个问题，单体要么消失掉要么小到变成另外一个微服务。
+
+## 确定需要转化为服务的模块的优先级
+
+一个庞大、复杂的单体应用有数十甚至上百个模块组成，所有的模块都是需要提取的候选。确定哪一个模块需要首先被提取是很有挑战性的问题，一个好的方式是先选择容易提取的模块作为开始，这将给你一些微服务总体上概览以及尤其是提取过程上的经验。在这之后，你可以提取那些可以给你带来最大优势的模块。
+
+把一个模块转化为一个服务通常是需要一定时间的。你想要根据你可以获得优势的大小排列你的模块，通常转换经常变化的模块带来的优势最大。一旦你把一个模块转化为服务，你就可以独立于单体来开发、部署它 了，这会极大的加速你的开发效率。
+
+提取那些对资源有独特需求的模块也会带来很多优势，比如，把拥有内存数据的模块转化为服务，就可以把服务部署到拥有大量内存的主机上，同样的，提取一个需要实现计算密集型算法的模块也是很值得的，因为该服务可以被部署到有多颗CUP的主机上，通过把有独特资源需求的模块转化为服务，可以使得应用更容易扩展。
+
+当决定哪个模块需要提取时，查看已存在的粗粒度的边界（也就是缝隙）是很有用的，这会使模块转化到服务更加简单和低廉。边界的例子之一是，一个模块只通过异步消息与应用的其他部分进行通信，把该模块转化成微服务是相当廉价和简单的。
+
+## 如何提取模块
+
+提取模块的第一步是确定模块与单体应用间的粗粒度接口，由于单体和模块需要访问彼此拥有的数据，一般是一些双向的API。由于依赖的错综复杂以及模块与应用其他部分间细粒度的交互，实现这些API一般非常有挑战性。重构使用[领域对象模式](http://martinfowler.com/eaaCatalog/domainModel.html) 设计的业务逻辑尤其困难，因为领域模型类中彼此包含大量的关联关系 。你一般需要进行大的代码改动才能打破这些依赖，下图展示了重构过程：
+
+一旦你实现了粗粒度的接口，你就可以把这些模块转化为独立的服务。为了实现这个目标，你必须写代码使得单体应用和服务可以通过进程间通信机制的API进行交互。下图展示了应用重构前、中、后的架构：
+![Paste_Image.png](http://upload-images.jianshu.io/upload_images/3912920-a0b9bce56c11edef.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+在这个例子中，模块Z是要被提取的候选模块，它的组件被模块X使用，它本身使用到模块Y。重构第一步是定义一组粗粒度的API，第一个接口是模块X调用模块Z的入端接口，第二个接口是模块Z调用模块Y的出端接口。
+The second refactoring step turns the module into a standalone service. The inbound and outbound interfaces are implemented by code that uses an IPC mechanism. You will most likely need to build the service by combining Module Z with a [Microservice Chassis framework](http://microservices.io/patterns/microservice-chassis.html) that handles cross-cutting concerns such as service discovery.
