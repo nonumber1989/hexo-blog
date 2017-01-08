@@ -18,7 +18,7 @@ categories: microservice
 
 # 为什么使用服务发现
 
-设想下，我们写了一些通过REST API或者Thrift API调用某个服务的代码，为了发起这个请求，你的代码需要知道服务实例的网络地址(IP 地址和端口号）。在传统运行在物理机器上的应用中，某个服务实例的网络地址一般是静态的，比如，代码可以从偶尔更新的配置文件中读取网络地址。
+设想下，我们写了一些通过REST API或者Thrift API调用某个服务的代码，为了发起这个请求，你的代码需要知道服务实例的网络地址(IP 地址和端口号）。在传统运行在物理机器上的应用中，某个服务实例的网络地址一般是静态的，比如，代码可以从只会偶尔更新的配置文件中读取网络地址。
 然而在现在流行的基于云平台的微服务应用中， 有更多如下图所示的困难问题需要去解决：
 ![Paste_Image.png](http://upload-images.jianshu.io/upload_images/3912920-4742d0f9ff9bdeb9.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 服务实例需要动态分配网络地址，而且，一组服务实例可能会因为自动扩展、失败或者升级发生动态变化，因此 你的客户端代码应该使用更加精细的服务发现机制。
@@ -28,8 +28,83 @@ categories: microservice
 当我们使用 [客户端发现](http://microservices.io/patterns/client-side-discovery.html)的时候，客户端负责决定可用服务实例的网络地址并且在集群中对请求负载均衡, 客户端访问**服务登记表**，也就是一个可用服务的数据库，然后客户端使用一种负载均衡算法选择一个可用的服务实例然后发起请求。
 下图展示了该结构模式：
 ![Paste_Image.png](http://upload-images.jianshu.io/upload_images/3912920-76cc7f3f5107c3af.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
-服务实例的网络地址在服务启动的时候被登记到服务注册中 ，当实例终止服务时从服务注册中移除。服务实例的注册一般是通过心跳机制阶段性的进行刷新。
+服务实例的网络地址在服务启动的时候被登记到服务注册表中 ，当实例终止服务时从服务注册表中移除。服务实例的注册一般是通过心跳机制阶段性的进行刷新。
 
-[Netflix OSS](https://netflix.github.io/) 为客户端发现机制提供了很多优秀的例子。[Netflix Eureka](https://github.com/Netflix/eureka) 实现了服务注册，它通过提供REST API来管理服务实例注册以及可用实例的查询。[Netflix Ribbon](https://github.com/Netflix/ribbon) 是一个与Eureka一起使用并在多个可用实例间对请求负载均衡的IPC客户端。我们将在下面文章深入讨论Eureka。
+[Netflix OSS](https://netflix.github.io/) 为客户端发现机制提供了很多优秀的例子。[Netflix Eureka](https://github.com/Netflix/eureka) 实现了服务注册表，它通过提供REST API来管理服务实例注册以及可用实例的查询。[Netflix Ribbon](https://github.com/Netflix/ribbon) 是一个与Eureka一起使用并在多个可用实例间对请求负载均衡的IPC客户端。我们将在下面文章深入讨论Eureka。
 
-客户端发现机制有诸多优势和劣势：该模式除了服务注册表之外没有其他的活动部分了，相对来说还是简单直接的，而且，由于客户端知道相关的可用服务实例，那么就可以使用更加智能的，特定于应用的负载均衡机制，比如一致性哈希。一个明显的缺点是它把客户端与服务注册表紧耦合了，你必须为每一种服务客户端的编程语言和框架实现客户端服务发现。
+客户端发现机制有诸多优势和劣势：该模式除了服务注册表之外没有其他的活动部分了，相对来说还是简单直接的，而且，由于客户端知道相关的可用服务实例，那么就可以使用更加智能的，特定于应用的负载均衡机制，比如一致性哈希。一个明显的缺点是它把客户端与服务注册表紧耦合了，你必须为每一种消费服务的客户端对应的编程语言和框架实现服务发现逻辑。
+
+现在看完了客户端发现，再让我们看下服务端发现吧。
+
+## 服务端发现模式
+服务发现的另一种模式就是[服务端发现模式](http://microservices.io/patterns/server-side-discovery.html)。下图展示了该模式的结构：
+![Paste_Image.png](http://upload-images.jianshu.io/upload_images/3912920-76dce8ab07216514.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+客户端通过一个负载均衡器向服务发送请求，负载均衡器查询服务注册表并把请求路由到一台可用的服务实例上。和客户端发现一样，服务实例通过服务注册表进行服务的注册和注销。
+
+ [AWS Elastic Load Balancer](https://aws.amazon.com/elasticloadbalancing/) (ELB) 是服务端发现路由的一个示例。一个ELB通常对来自外部互联网的请求进行负载均衡，当然，你也可以使用ELB对虚拟私有云(VPC)的内部请求进行负载均衡。客户端通过DNS域名向ELB发起HTTP或者TCP请求，ELB将请求负载均衡到一系列注册的Elastic Compute Cloud (EC2) 实例 或者EC2 Container Service (ECS) 的容器中，两者并没有分割的服务注册表，EC2 实例和ECS容器都是通过ELB进行注册的。
+
+类似NGINX PLUG和NGINX这些HTTP服务器和负载均衡器可以作为服务端发现负载均衡来使用。比如 [这篇博客](https://www.airpair.com/scalable-architecture-with-docker-consul-and-nginx) 就描述了使用[Consul Template](https://github.com/hashicorp/consul-template) 动态重配置NGINX反向代理，Consul Template是一种根据存储在Consul 服务注册表的配置数据阶段性重新生成任意配置文件的工具 ，每当文件发生变化时，它将运行任意的Shell 命令。在博客描述的例子中，Consul Template 生成用于配置反向代理的**nginx.conf**文件，然后运行一个命令行告知NGINX重载配置。更复杂的实现可能使用 [HTTP API or DNS](https://www.nginx.com/products/on-the-fly-reconfiguration/?utm_source=service-discovery-in-a-microservices-architecture&utm_medium=blog&utm_campaign=Microservices)动态重配置NGINX Plus。
+
+一些部署环境使用诸如[Kubernetes](https://github.com/kubernetes/kubernetes/blob/master/docs/design/architecture.md) 和[Marathon](https://mesosphere.github.io/marathon/docs/service-discovery-load-balancing.html)在集群中的每个主机上运行一个代理，这些代理扮演了服务端发现负载均衡的角色，代理可以根据主机IP地址和服务分配的端口号来路由客户端请求，代理因此可以透明的把客户端请求转发到集群中某台可用的服务实例上去。
+
+服务端发现模式有一些优势也有一些劣势：一个巨大的优势是，服务发现的细节对客户端来说是抽象的，客户端仅需向负载均衡器发送请求即可。这种方式减少了为消费服务的不同编程语言与框架实现服务发现逻辑的麻烦。当然，正如前面所述，一些部署环境已经提供了该功能。这种模式也有一些劣势： 除非部署环境已经提供了负载均衡器，否则这又是一个需要额外设置和管理的可高可用的系统组件。
+
+# 服务注册表
+[服务注册表](http://microservices.io/patterns/service-registry.html) 是服务发现的关键部分，它是一个包含服务实例网络地址的的数据库。一个服务注册表需要高可用和实时更新，客户端可以缓存从服务注册表获取的网络地址。然而，这样的话缓存的信息最终会过期，客户端不能再根据该信息发现服务实例。因此，服务注册表对集群中的服务实例使用复制协议来维护一致性。
+
+之前也提到 [Netflix Eureka](https://github.com/Netflix/eureka) 是服务注册表的好例子，它为服务实例的注册与查询提供了REST API：一个服务实例可以使用POST来注册自己的网络地址，它必须每30秒通过PUT去刷新，服务实例可以直接或者在服务实例注册超时的时候使用DELETE删除注册表中的信息，正如你所料，客户端可以使用HTTP GET获取注册实例的信息。
+
+Netflix通过在每一个Amazon EC2 availability zone运行一到多个Eureka服务[ 实现高可用](https://github.com/Netflix/eureka/wiki/Configuring-Eureka-in-AWS-Cloud)  。每一个Eureka服务器运行在一个关联 [Elastic IP地址](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html)的 EC2 实例上。**DNS TEXT**记录了Eureka集群的配置文件，配置文件映射availability zones到一组Eureka服务器可用的网络地址。 Eureka 服务器启动的时候将会查询DNS获取Eureka集群的配置、查询同等节点并为自己分配一个未被使用的Elastic IP地址。
+
+Eureka clients – services和service clients，通过查询DNS发现Eureka服务器的网络地址。客户端更倾向使用在同一availability zone中的Eureka服务器，当然，如果该zone中没有可用的网络地址，它将使用另一zone中的。
+
+其他的服务注册表例子包括：
++ [etcd](https://github.com/coreos/etcd) ，一个高可用、分布式、一致性、key-value 方式的存储，被用在分享配置和服务发现中。两个著名的项目使用了它：Kubernetes 和 [Cloud Foundry](http://pivotal.io/platform).
++ [consul](https://www.consul.io/) ，一个发现和配置服务的工具，为客户端注册和发现服务提供了API，Consul还可以通过执行健康检查决定服务的可用性。
++ [Apache Zookeeper](http://zookeeper.apache.org/) ，是一个广泛使用、高性能的针对分布式应用的协调服务。 Apache Zookeeper本来是Hadoop的子工程，现在已经是顶级工程了。
+
+正如前面所述，一些诸如Kubernetes、Marathon和AWS之类的应用并没有显示的服务注册表，相反，服务注册表是架构内置的一部分。
+
+我们已经看过了服务注册表的概念，现在我们看下服务实例是如何使用注册表注册的：
+
+## 服务注册选项
+正如前面提到的那样，服务实例必须使用服务注册表来进行服务的注册和注销，我们有几种方式来处理服务的注册和注销，其中之一是服务实例自己注册自己也就是[self-registration 模式](http://microservices.io/patterns/self-registration.html)，另一种是系统的其他组件管理服务实例的注册，也就是 [third-party registration 模式](http://microservices.io/patterns/3rd-party-registration.html).。我们先看下self-registration模式：
+
+### Self-Registration模式
+当使用[self-registration 模式](http://microservices.io/patterns/self-registration.html),时，服务实例自己负责通过服务注册表对自己进行注册和注销，另外如果有必要的话，服务实例可以通过发送心跳请求防止注册过期，下图展示了该模式的结构：
+![Paste_Image.png](http://upload-images.jianshu.io/upload_images/3912920-5bd07f6c772a719f.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+
+[Netflix OSS Eureka client](https://github.com/Netflix/eureka)就是这种模式的一个例子，Eureka客户端处理服务实例注册和注销的各个方面。[Spring Cloud project](http://projects.spring.io/spring-cloud/)实现了包括服务发现在内的不同模式，使得自动注册服务实例到Eureka变的简单。你可以简单的在你的java配置类上添加@EnableEurekaClient注解即可。
+
+self-registration模式有一些优势也有一些劣势：优势之一是它相对简单，而且不强制使用其他的系统组件。然而，一个很大的劣势是 它使得服务实例和服务注册表强耦合 ，你必须在每一个使用服务的客户端编程语言和架构代码中实现注册逻辑。
+
+解绑服务和服务注册表的另一替换方案是，使用third-party registration 模式。
+
+### Third-Party Registration模式
+当使用[third-party registration 模式](http://microservices.io/patterns/3rd-party-registration.html)的时候，服务实例本身并不负责通过服务注册表注册自己，相反的，通过另一个被称作 *service registrar*系统组件来处理注册。 service registrar通过轮询或者订阅事件来检测一些运行实例的变化，当它检测到一个新的可用服务实例时就把该实例注册到服务注册表中去，service registrar还负责注销已经被终止的服务实例，下图展示了该模式的架构：
+![Paste_Image.png](http://upload-images.jianshu.io/upload_images/3912920-e68df99cf47bfeec.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
+service registrar其中一个例子是开源的[Registrator](https://github.com/gliderlabs/registrator) 项目，它自动的对部署到Docker 容器中的服务实例进行注册和注销。 Registrator支持不同的服务注册表，包括etcd和Consul。
+
+service registrar的另一个例子是 [NetflixOSS Prana](https://github.com/netflix/Prana)，原本是为非JVM语言的服务所设计，它像服务实例的跨斗一样和服务实例一起运行，Prana使用Netflix Eureka对服务进行注册和注销。
+
+service registrar是部署环境的内置组件，EC2实例可以自动扩展组 并可使用ELB进行服务注册。Kubernetes 服务是自动注册的并能使其可以被发现。
+
+third-party registration模式有一些优势也有一些劣势：主要优势是使得服务从服务注册表中被解耦，你不必为开发者使用的每种开发语言和框架实现服务注册的逻辑，相反，服务实例的注册被一个专有服务以集中式的方式处理。
+
+该模式的劣势是，除非它被内置在部署环境中，不然这又是一个需要被设置和管理的高可用系统组件。
+
+# 总结
+
+在一个微服务应用中，一组运行的服务实例是动态变化的，实例有动态分配的网络地址，因此，为了使得客户端能够向服务发起请求，必须要要有服务发现机制。
+
+服务发现的关键是[服务注册表](http://microservices.io/patterns/service-registry.html)，服务注册表是可用服务实例的数据库，它提供了管理和查询使用的API。服务实例使用这些管理API进行服务的注册和注销，系统组件使用查询API来发现可用的服务实例。
+
+有两种服务发现的模式：客户端发现和服务端发现。在使用[客户端发现模式](http://microservices.io/patterns/client-side-discovery.html)的系统中，客户端直接查询服务注册表，选择一个可用的实例并发起请求，在一个使用[服务端发现模式](http://microservices.io/patterns/server-side-discovery.html)的系统中，客户端通过路由发起请求，路由会查询服务注册表并把请求转发到可用的服务实例上。
+
+对服务实例来讲有两种方式可以对服务注册表进行注册和注销，一种是服务实例本身通过服务注册表来注册自己，也就是[self-registration模式](http://microservices.io/patterns/self-registration.html)，另一种则是第三方系统组件代表实例来处理服务的注册和注销，也就是[third-party registration模式](http://microservices.io/patterns/3rd-party-registration.html)。
+
+在一些部署环境中，你需要使用诸如[Netflix Eureka](https://github.com/Netflix/eureka)、[etcd](https://github.com/coreos/etcd), 或者[Apache Zookeeper](http://zookeeper.apache.org/)这样的服务注册表来设置你自己的服务发现架构。在另一些部署环境中，服务发现则是内置组件，比如[Kubernetes](https://github.com/kubernetes/kubernetes/blob/master/docs/design/architecture.md) 和 [Marathon](https://mesosphere.github.io/marathon/docs/service-discovery-load-balancing.html)用来处理服务注册和注销，他们同样也在集群的每一个主机上运行一个代理来扮演[服务端发现](http://microservices.io/patterns/server-side-discovery.html)路由的角色。
+
+一些诸如NGINX的HTTP反向代理和负载均衡器 可以用作服务端发现负载均衡器使用，服务注册表可以向NGINX推送路由信息并调用优雅的配置更新，比如，你可以使用[Consul Template](https://hashicorp.com/blog/introducing-consul-template.html)。 NGINX Plus 支持[额外的动态重配置机制](https://www.nginx.com/products/on-the-fly-reconfiguration/?utm_source=service-discovery-in-a-microservices-architecture&utm_medium=blog&utm_campaign=Microservices) ：它可以使用DNS从服务注册表 拉取服务实例的信息，并且为远程重配置提供API。
+
+在该系列之后的文章中我们将继续挖掘微服务的各个方面。
