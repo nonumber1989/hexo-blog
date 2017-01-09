@@ -4,16 +4,6 @@ tags: [microservice]
 categories: microservice
 ---
 
-**原文链接:[*Refactoring a Monolith into Microservices*](https://www.nginx.com/blog/refactoring-a-monolith-into-microservices/?utm_source=introduction-to-microservices&utm_medium=blog&utm_campaign=Microservices)**
-
-1. *[微服务介绍](http://www.jianshu.com/p/8d2cfa1fa633)*
-2. *[构建微服务之使用API网关](http://www.jianshu.com/p/9e90b2a5df7b)*
-3. *[构建微服务之:微服务架构中的进程间通信](http://www.jianshu.com/p/9c03081bc0d9)*
-4. *[微服务中的服务发现](http://www.jianshu.com/p/1bf9a46efe7a)*
-5. *[微服务之事件驱动的数据管理](http://www.jianshu.com/p/9a440c5ea1db)*
-6. *[选择一种微服务部署策略](http://www.jianshu.com/p/31c2a5a8b764)*
-7. *重构单体应用到微服务(本文)*
-
 这是使用微服务架构构建应用系列的第七篇也是最后一篇文章，第一篇文章介绍了微服务架构模式，并讨论了使用微服务架构的优势和劣势，接下来的文章讨论微服务架构的不同方面：使用API网关、进程间通信、服务发现、事件驱动的数据管理以及部署微服务，本篇文章，让我们看下如何把一个单体应用重构为微服务架构的应用。
 
 我希望这个系列的文章使你对微服务架构有一些好的理解，比如它的优势和劣势，何时使用微服务等 ，或许微服务架构对您的组织将非常合适。
@@ -88,4 +78,11 @@ Martin Fowler 提到了这种应用现代化的策略，称其为[Strangler Appl
 ![Paste_Image.png](http://upload-images.jianshu.io/upload_images/3912920-a0b9bce56c11edef.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/1240)
 
 在这个例子中，模块Z是要被提取的候选模块，它的组件被模块X使用，它本身使用到模块Y。重构第一步是定义一组粗粒度的API，第一个接口是模块X调用模块Z的入端接口，第二个接口是模块Z调用模块Y的出端接口。
-The second refactoring step turns the module into a standalone service. The inbound and outbound interfaces are implemented by code that uses an IPC mechanism. You will most likely need to build the service by combining Module Z with a [Microservice Chassis framework](http://microservices.io/patterns/microservice-chassis.html) that handles cross-cutting concerns such as service discovery.
+
+重构的第二步是把模块转化为独立的服务，出端和入端的接口使用IPC机制的代码实现，你最有可能需要通过模块 Z 结合 [Microservice Chassis framework](http://microservices.io/patterns/microservice-chassis.html)来处理诸如服务发现这样的横切关注点。
+
+一旦你提取了某个模块，你就拥有了另一个可以独立于单体应用和其他服务来开发、部署、扩展的新服务，你甚至可以从头重写这个服务； 在这种状况下，API代码集成单体和微服务，变成了用以转换两种领域模型的anti-corruption层。每次你提取一个模块，你就又向微服务的方向迈出一步，随着时间的推移，单体应用将会缩水，你也会拥有更多的微服务。
+
+# 总结
+
+从一个现存应用迁移到微服务的过程是应用现代化的一种形式，你不应该以从头完全重写的方式把现存应用变为微服务，相反的，你应该逐步的把应用重构为一系列的微服务。你可以使用三种策略：使用微服务实现新的功能；把表现层从业务逻辑和数据访问组件中拆分出来；把单体应用中的现有模块转化为服务。随着时间推移，微服务的数量将会增长，你团队的敏捷性和开发速度也会提升。
